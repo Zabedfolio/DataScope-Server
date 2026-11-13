@@ -8,5 +8,11 @@ describe("Health Check Endpoint", () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: "ok" });
   });
+
+  it("GET /api/auth/ok should respond with status 200 and { ok: true }", async () => {
+    const res = await request(app).get("/api/auth/ok");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+  });
 });
 
