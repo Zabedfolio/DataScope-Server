@@ -19,3 +19,4 @@ export const searchHistory = pgTable(
 
 export type SearchHistoryEntity = typeof searchHistory.$inferSelect;
 export type NewSearchHistoryEntity = typeof searchHistory.$inferInsert;
+

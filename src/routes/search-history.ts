@@ -70,3 +70,4 @@ searchHistoryRouter.delete("/:id", async (req, res) => {
     });
   }
 });
+
