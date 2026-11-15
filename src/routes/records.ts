@@ -22,6 +22,7 @@ recordsRouter.get("/", async (req, res) => {
       maxLatency,
       sortField = "timestamp",
       sortDirection = "desc",
+      sortRules,
     } = req.query as Record<string, string | undefined>;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -81,26 +82,46 @@ recordsRouter.get("/", async (req, res) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Sorting column
-    let orderExpr;
-    const isAsc = sortDirection?.toLowerCase() === "asc";
-    switch (sortField) {
-      case "latency":
-        orderExpr = isAsc ? asc(records.latency) : desc(records.latency);
-        break;
-      case "status":
-        orderExpr = isAsc ? asc(records.status) : desc(records.status);
-        break;
-      case "service":
-        orderExpr = isAsc ? asc(records.service) : desc(records.service);
-        break;
-      case "revenue":
-        orderExpr = isAsc ? asc(records.revenue) : desc(records.revenue);
-        break;
-      case "timestamp":
-      default:
-        orderExpr = isAsc ? asc(records.timestamp) : desc(records.timestamp);
-        break;
+    // Sorting column (supports multi-column sort: "service:asc,latency:desc")
+    const orderClauses: any[] = [];
+    const sortParamString = sortRules || sortField || "timestamp";
+    const rulesList = String(sortParamString).split(",");
+
+    for (const item of rulesList) {
+      const [col, colDir] = item.includes(":")
+        ? item.split(":")
+        : [item, sortDirection || "desc"];
+      const isAsc = colDir?.trim().toLowerCase() === "asc";
+      const cleanCol = col.trim();
+
+      switch (cleanCol) {
+        case "latency":
+          orderClauses.push(isAsc ? asc(records.latency) : desc(records.latency));
+          break;
+        case "status":
+          orderClauses.push(isAsc ? asc(records.status) : desc(records.status));
+          break;
+        case "service":
+          orderClauses.push(isAsc ? asc(records.service) : desc(records.service));
+          break;
+        case "cluster":
+          orderClauses.push(isAsc ? asc(records.cluster) : desc(records.cluster));
+          break;
+        case "id":
+          orderClauses.push(isAsc ? asc(records.id) : desc(records.id));
+          break;
+        case "revenue":
+          orderClauses.push(isAsc ? asc(records.revenue) : desc(records.revenue));
+          break;
+        case "timestamp":
+        default:
+          orderClauses.push(isAsc ? asc(records.timestamp) : desc(records.timestamp));
+          break;
+      }
+    }
+
+    if (orderClauses.length === 0) {
+      orderClauses.push(desc(records.timestamp));
     }
 
     // Execute paginated select and count concurrently
@@ -109,7 +130,7 @@ recordsRouter.get("/", async (req, res) => {
         .select()
         .from(records)
         .where(whereClause)
-        .orderBy(orderExpr)
+        .orderBy(...orderClauses)
         .limit(limit)
         .offset(offset),
       db
