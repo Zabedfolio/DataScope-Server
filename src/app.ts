@@ -14,7 +14,8 @@ dotenv.config();
 
 export const app = express();
 
-app.use(helmet());
+const helmetMiddleware = typeof (helmet as any) === "function" ? (helmet as any)() : (helmet as any).default();
+app.use(helmetMiddleware);
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
@@ -39,3 +40,5 @@ app.use("/api/v1/records", recordsRouter);
 app.use("/api/v1/views", viewsRouter);
 app.use("/api/v1/analytics", analyticsRouter);
 app.use("/api/v1/search-history", searchHistoryRouter);
+
+export default app;
