@@ -29,6 +29,15 @@ recordsRouter.get("/", async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 25));
     const offset = (pageNum - 1) * limit;
 
+    // Server-Side RBAC Dataset Clearance Guard (§2, §13)
+    const userRole = (req.headers["x-user-role"] as string) || (req.query as any).userRole;
+    if (datasetId === "ds_payment_ledger" && userRole === "Viewer") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Cross-Region Payment Ledger requires Administrator clearance. Viewer access denied.",
+      });
+    }
+
     // Build conditions array
     const conditions = [];
 
@@ -172,6 +181,14 @@ recordsRouter.get("/", async (req, res) => {
 // GET /api/v1/records/export - Streaming CSV export with flat memory footprint
 recordsRouter.get("/export", async (req, res) => {
   try {
+    const userRole = (req.headers["x-user-role"] as string) || (req.query as any).role || (req.query as any).userRole;
+    if (userRole === "Viewer") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Viewer role does not have clearance to export dataset records. Analyst or Admin role required.",
+      });
+    }
+
     const { datasetId, search, status, service, country } = req.query as Record<
       string,
       string | undefined
