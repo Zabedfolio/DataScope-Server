@@ -148,6 +148,87 @@ recordsRouter.get("/", async (req, res) => {
   }
 });
 
+// GET /api/v1/records/export - Streaming CSV export with flat memory footprint
+recordsRouter.get("/export", async (req, res) => {
+  try {
+    const { datasetId, search, status, service, country } = req.query as Record<
+      string,
+      string | undefined
+    >;
+
+    const conditions = [];
+    if (datasetId) conditions.push(eq(records.datasetId, datasetId));
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(records.id, q),
+          ilike(records.service, q),
+          ilike(records.summary, q)
+        )
+      );
+    }
+    if (status) {
+      const s = parseInt(status, 10);
+      if (!isNaN(s)) conditions.push(eq(records.status, s));
+    }
+    if (service) conditions.push(eq(records.service, service));
+    if (country) conditions.push(eq(records.country, country));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="datascope_${datasetId || "telemetry"}_export.csv"`
+    );
+
+    // Write CSV header
+    res.write("Timestamp,Stream ID,Service,Method,Cluster,Latency,Status,Country,Revenue,Summary\n");
+
+    const batchSize = 1000;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const chunk = await db
+        .select()
+        .from(records)
+        .where(whereClause)
+        .orderBy(desc(records.timestamp))
+        .limit(batchSize)
+        .offset(offset);
+
+      if (chunk.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const r of chunk) {
+        const time = r.timestamp ? new Date(r.timestamp).toISOString() : "";
+        const cleanSummary = (r.summary || "").replace(/"/g, '""');
+        const line = `"${time}","${r.id}","${r.service}","${r.method}","${r.cluster}",${r.latency},${r.status},"${r.country || ""}","${r.revenue || 0}","${cleanSummary}"\n`;
+        res.write(line);
+      }
+
+      offset += chunk.length;
+      if (chunk.length < batchSize || offset >= 50000) {
+        hasMore = false;
+      }
+    }
+
+    res.end();
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to stream CSV export",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+});
+
 // GET /api/v1/records/:id - Fetch single record details
 recordsRouter.get("/:id", async (req, res) => {
   try {

@@ -7,6 +7,8 @@ import { auth } from "./lib/auth.js";
 import { datasetsRouter } from "./routes/datasets.js";
 import { recordsRouter } from "./routes/records.js";
 import { viewsRouter } from "./routes/views.js";
+import { analyticsRouter } from "./routes/analytics.js";
+import { searchHistoryRouter } from "./routes/search-history.js";
 
 dotenv.config();
 
@@ -35,3 +37,5 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/v1/datasets", datasetsRouter);
 app.use("/api/v1/records", recordsRouter);
 app.use("/api/v1/views", viewsRouter);
+app.use("/api/v1/analytics", analyticsRouter);
+app.use("/api/v1/search-history", searchHistoryRouter);
